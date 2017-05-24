@@ -80,7 +80,7 @@ bash ../links-YYYYMMDD.sh
 ```
 cd deploy
 . ../src/util/env.sh
-fastq2bam_pipeline --config pipeline.config --verbose 3 --jobs 10 --use_threads --log_file ./test`date +%Y%m%d`.log
+fastq2bam_pipeline --config pipeline.config --verbose 3 --jobs 10 --use_threads --log_file ./test``date +%Y%m%d``.log
 ```
 
 # Components
