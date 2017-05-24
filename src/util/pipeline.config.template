@@ -1,0 +1,78 @@
+# Default settings for the pipeline stages.
+# These can be overridden in the stage settings below.
+#
+
+pipeline_id: fastq2bam
+
+defaults:
+    # Number of CPU cores to use for the task
+    cores: 1
+    # Maximum memory in gigabytes for a cluster job
+    mem: 4
+    account: punim0261
+    queue: punim0261
+    # Maximum allowed running time on the cluster in Hours:Minutes
+    walltime: '16:00'
+    # Load modules for running a command on the cluster.
+    modules:
+    # Run on the local machine (where the pipeline is run)
+    # instead of on the cluster. False means run on the cluster.
+    local: False
+
+# Stage-specific settings. These override the defaults above.
+# Each stage must have a unique name. This name will be used in
+# the pipeine to find the settings for the stage.
+
+stages:
+    fastqc:
+        cores: 1
+        walltime: '16:00'
+        mem: 4
+        modules: 
+            - fastqc
+
+    fastq2bam:
+        cores: 4
+        walltime: '200:00'
+        mem: 4
+        modules:
+            - Java
+        local: False
+
+    validate_prealigned_bam:
+        cores: 1
+        walltime: '24:00'
+        mem: 4
+        modules:
+            - Singularity
+        local: False
+
+    align:
+        cores: 4
+        walltime: '320:00'
+        mem: 32
+        modules:
+            - Singularity
+        local: False
+
+    align_stats_bedtools:
+        cores: 1
+        walltime: '24:00'
+        mem: 16
+        modules:
+            - BEDTools
+        local: False
+
+    align_stats_picard:
+        cores: 1
+        walltime: '24:00'
+        mem: 16
+        modules:
+            - Java
+        local: False
+
+# The input files.
+
+files:
+    - /data/projects/punim0095/pan-prostate/out/CMHS126_R1.fastq.gz
+    - /data/projects/punim0095/pan-prostate/out/CMHS126_R2.fastq.gz

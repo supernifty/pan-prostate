@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# this runs inside the singularity container
+
+export OPT=/opt/wtsi-cgp
+export PATH=$OPT/bin:$PATH
+export PERL5LIB=$OPT/lib/perl5
+export LD_LIBRARY_PATH=$OPT/lib
+export TMPDIR=/mnt/tmp
+
+# HOME is where the tmp files end up
+export HOME=/mnt/tmp/TMP_ID
+mkdir -p $HOME
+
+cd /mnt/out/
+
+/usr/bin/perl /opt/wtsi-cgp/bin/ds-wrapper.pl \
+   -reference /mnt/reference/core_ref_GRCh37d5.tar.gz \
+   -bwa_idx /mnt/reference/bwa_idx_GRCh37d5.tar.gz \
+   -sample SAMPLE_ID \
+   -scramble '' \
+   -bwa ' -Y -K 100000000 -t 4' /mnt/out/SAMPLE_FILENAME.bam
+
+# mv required files to destination 
+for suffix in bam bam.bai bam.bas bam.maptime bam.md5 bam.met; do
+  mv /mnt/tmp/TMP_ID/SAMPLE_ID.$suffix /mnt/out/SAMPLE_FILENAME.mapped.$suffix
+done

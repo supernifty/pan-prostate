@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# this runs inside the singularity container
+
+export PATH=/opt/cgpNgsQc/bin:$PATH
+export PERL5LIB=/opt/cgpNgsQc/lib/perl5:$PERL5LIB
+
+export LD_LIBRARY_PATH=/opt/lib
+export TMPDIR=/mnt/tmp
+
+export HOME=/mnt/tmp/TMP_ID
+
+cd /mnt/out
+
+/usr/bin/perl /opt/cgpNgsQc/bin/validate_sample_meta.pl -in SAMPLE.validation_src -out SAMPLE.validation -f tsv 1>SAMPLE.validation.out 2>SAMPLE.validation.err
+

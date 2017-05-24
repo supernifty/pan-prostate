@@ -1,0 +1,2 @@
+Sample UUID,Patient UUID,Lab ID,tissue_id,is_normal,Status,Pre-aligned,Validated
+mini,minipatient,minilab,minitissue,N,testing1,testing2,testing3
