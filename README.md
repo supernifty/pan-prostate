@@ -70,12 +70,13 @@ A *links* file is created, which can be executed in the out directory to generat
 ```
 cd out
 bash ../links-YYYYMMDD.sh
+```
 
 # Running the pipeline
 
 * root is set to ROOT='/data/projects/punim0095/pan-prostate' in stages.py and fastq2bam.py
 * copy src/util/pipeline.config deploy/
-* edit deploy/pipeline.config to include all the samples. Use links-*.sh to get the list.
+* edit deploy/pipeline.config to include all the samples. Use links-YYYYMMDD.sh to get the list.
 
 ```
 cd deploy
