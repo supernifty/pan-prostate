@@ -7,6 +7,32 @@ import re
 import sys
 import threading
 
+def find_normal(tumour_id, metadata_fh):
+    normals = {}
+    tumour_donor = None
+    # Sample UUID,Patient UUID,Lab ID,tissue_id,is_normal,Status,Pre-aligned,Validated
+    for line in metadata_fh:
+        fields = line.strip('\n').split(',')
+        sample_id = fields[0]
+        donor_id = fields[1]
+        is_normal = fields[4]
+        if tumour_id == sample_id:
+            if is_normal == 'Y':
+                return None # not a tumour sample
+            tumour_donor = fields[1]
+        elif is_normal == 'Y':
+            normals[fields[1]] = fields[0]
+
+    # have now read the whole file
+    if tumour_donor is None: # tumour not found
+        raise Exception('failed to find sample {} in sample metadata file'.format(tumour_id))
+
+    if tumour_donor in normals:
+        return normals[tumour_donor]
+
+    raise Exception('no normal found for sample {} with donor {}'.format(tumour_id, tumour_donor))
+
+
 def read_group_info(filename):
     sys.stderr.write('processing {}...\n'.format(filename))
     lanes = collections.defaultdict(dict)

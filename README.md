@@ -31,9 +31,16 @@ The account with access is:
 * fastqc must be on the path
 * picard: wget https://github.com/broadinstitute/picard/releases/download/2.8.2/picard-2.8.2.jar in tools
 
+* References:
+  TODO other references
+  wget ftp://ftp.sanger.ac.uk/pub/cancer/dockstore/human/cytoband_GRCh37d5.txt
+
 ## Installing the pipeline
 
 ```
+module load Python/2.7.12-intel-2016.u3
+module load slurm_drmaa/1.0.7-GCC-4.9.2
+
 cd deploy
 virtualenv venv
 source ./venv/bin/activate
@@ -41,6 +48,7 @@ pip install -U pip
 pip install ../tools/ruffus
 pip install ../tools/pipeline_base
 pip install -U ../src/fastq2bam_pipeline/
+pip install plotly 
 ```
 
 ```
@@ -54,6 +62,15 @@ cp ../src/util/pipeline.config .
 Sample UUID,Patient UUID,Lab ID,tissue_id,is_normal,Status,Pre-aligned,Validated
 CMHS1,CMHP1,299bT,BT,N,,,
 ```
+
+To add new samples to the pipeline:
+* If it's not already in the metadata, update ROOT/cfg/sample-metadata.csv and ROOT/cfg/uuid_map
+* Run ./src/util/make_symlinks.sh (see below)
+* Update ./deploy/pipeline.config (see below)
+
+## Multiple input runs for the same sample
+
+* Edit uuid_map and add samplename-1,filename_additional
 
 ## Symlinks
 
@@ -69,7 +86,7 @@ This generates a *sources* file containing all fastq files, then uses ./cfg/uuid
 A *links* file is created, which can be executed in the out directory to generate all symlinks.
 ```
 cd out
-bash ../links-YYYYMMDD.sh
+bash ROOT/links-YYYYMMDD.sh
 ```
 
 # Running the pipeline
@@ -81,7 +98,7 @@ bash ../links-YYYYMMDD.sh
 ```
 cd deploy
 . ../src/util/env.sh
-fastq2bam_pipeline --config pipeline.config --verbose 3 --jobs 10 --use_threads --log_file ./test``date +%Y%m%d``.log
+fastq2bam_pipeline --config pipeline.config --verbose 3 --jobs 10 --use_threads --log_file ./test`date +%Y%m%d`.log
 ```
 
 # Components
@@ -116,5 +133,14 @@ module load Singularity
 A docker command from nectar:
 docker run -i --volume=/mnt/vicnode_nfs/jobs/fastq2bam/./datastore/launcher-9b14e477-c989-4ee8-9685-c83057055ad5/inputs/35bba1e6-0503-441b-9805-ea787d38708b/bwa_idx_GRCh37d5.tar.gz:/var/lib/cwl/stg0185577a-0938-4c49-9a54-d68e7869850b/bwa_idx_GRCh37d5.tar.gz:ro --volume=/mnt/vicnode_nfs/jobs/fastq2bam/./datastore/launcher-9b14e477-c989-4ee8-9685-c83057055ad5/inputs/93494ef6-d851-405a-9ccc-624aa721385b/CMHS231.bam:/var/lib/cwl/stg495d3698-e127-4365-989b-16794e2a0060/CMHS231.bam:ro --volume=/mnt/vicnode_nfs/jobs/fastq2bam/./datastore/launcher-9b14e477-c989-4ee8-9685-c83057055ad5/inputs/06404b25-e971-4a5b-8ac3-fd7d6aa6ddb6/core_ref_GRCh37d5.tar.gz:/var/lib/cwl/stgcf238f68-053e-46e0-854a-8dbdc0f7cc00/core_ref_GRCh37d5.tar.gz:ro --volume=/mnt/vicnode_nfs/dockstore-tmp/ba232dd7-037c-48fa-9dbd-55d2061ddce6-8b4e45d8-3e6b-47cf-a7cf-e41d198938ce/tmpWk0CbJ:/var/spool/cwl:rw --volume=/mnt/vicnode_nfs/jobs/fastq2bam/datastore/launcher-9b14e477-c989-4ee8-9685-c83057055ad5/working_kf81v:/tmp:rw --workdir=/var/spool/cwl --read-only=true --user=1000 --rm --env=TMPDIR=/tmp --env=HOME=/var/spool/cwl quay.io/wtsicgp/dockstore-cgpmap:2.0.0 /opt/wtsi-cgp/bin/ds-wrapper.pl -reference /var/lib/cwl/stgcf238f68-053e-46e0-854a-8dbdc0f7cc00/core_ref_GRCh37d5.tar.gz -bwa_idx /var/lib/cwl/stg0185577a-0938-4c49-9a54-d68e7869850b/bwa_idx_GRCh37d5.tar.gz -sample ba232dd7-037c-48fa-9dbd-55d2061ddce6 -scramble  -bwa  -Y -K 100000000 -t 4 /var/lib/cwl/stg495d3698-e127-4365-989b-16794e2a0060/CMHS231.bam
 
+## finding intermediate files to remove
+```
+cd /data/punim0261/data01
+python ROOT/src/util/remove_intermediate_files.py
+```
+This generates a list of candidates. Used sed or vi to make a shell script of files and remove them.
+
+
 
 ## ruffus pipeline to run pre-alignment and alignment
+

@@ -15,11 +15,14 @@ import re
 import sys
 import uuid
 
+import util
+
 ROOT='/data/projects/punim0095/pan-prostate'
 OUT='/data/punim0261/data01/out'
 IN='/data/punim0261/data02/original_data'
 REFERENCE='/data/projects/punim0095/pan-prostate/reference'
-TMP='/data/projects/punim0095/pan-prostate/tmp'
+TMP='/data/punim0261/data01/tmp'
+#TMP='/data/projects/punim0095/pan-prostate/tmp'
 
 class Stages(object):
     def __init__(self, state):
@@ -101,7 +104,7 @@ class Stages(object):
 
         # make our own align script
         tmp_id = '{}-{}'.format(sample, str(uuid.uuid4()))
-        tmp_dir = '{root}/tmp/{tmp_id}'.format(root=ROOT, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
         with open('{tmp_dir}/validate.sh'.format(tmp_dir=tmp_dir), 'w') as align_fh:
             for line in open('{root}/src/util/validate.sh.template'.format(root=ROOT), 'r'):
@@ -148,8 +151,8 @@ class Stages(object):
         #log_err = '{}.log.err'.format(bam_out)
 
         # make our own align script
-        tmp_id = '{}-{}'.format(sample, str(uuid.uuid4()))
-        tmp_dir = '{root}/tmp/{tmp_id}'.format(root=ROOT, tmp_id=tmp_id)
+        tmp_id = 'align-{}-{}'.format(sample, str(uuid.uuid4()))
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
         with open('{tmp_dir}/align.sh'.format(tmp_dir=tmp_dir), 'w') as align_fh:
             for line in open('{root}/src/util/align.sh.template'.format(root=ROOT), 'r'):
@@ -177,3 +180,155 @@ class Stages(object):
         command = 'java -jar {root}/tools/picard-2.8.2.jar CollectRawWgsMetrics INPUT={input} OUTPUT={output} REFERENCE_SEQUENCE={root}/reference/core_ref_GRCh37d5/genome.fa INCLUDE_BQ_HISTOGRAM=true 1>{output}.log.out 2>{output}.log.err'.format(root=ROOT, input=mapped_bam, output=stats_out)
         run_stage(self.state, 'align_stats_picard', command)
 
+    def validate_aligned_bam(self, inputs):
+        '''
+            check for sample mixup by running https://academic.oup.com/bioinformatics/article/33/4/596/2624551/HYSYS-have-you-swapped-your-samples
+            TODO
+        '''
+        pass
+
+#    def analyse_wgs(self, input, output):
+#        '''
+#          take mapped bams and generate variant calls by running the sanger pipeline cgpwgs
+#        '''
+#        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
+#        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
+#        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+#        if normal_id is None: # nothing to do
+#            safe_make_dir(os.path.dirname(output))
+#            with open(output, 'w') as output_fh:
+#                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
+#            return
+#
+#        tmp_id = '{}-{}'.format(tumour_id, str(uuid.uuid4()))
+#        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+#        safe_make_dir(tmp_dir)
+#        with open('{tmp_dir}/analyse.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
+#            for line in open('{root}/src/util/analyse.sh.template'.format(root=ROOT), 'r'):
+#                new_line = re.sub('TMP_ID', tmp_id, line)
+#                new_line = re.sub('TUMOUR', tumour_id, new_line)
+#                new_line = re.sub('NORMAL', normal_id, new_line)
+#                analyse_fh.write(new_line)
+#
+#        safe_make_dir(os.path.dirname(output))
+#        command = 'cp {root}/src/util/analysisWGS.serial.sh {tmp_dir}/analysisWGS.sh && cp {root}/src/util/ds-wrapper-wgs-1.0.7.serial.pl {tmp_dir}/ds-wrapper.pl && singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpwgs-1.0.7.img bash /mnt/tmp/{tmp_id}/analyse.sh 1>{prefix}.analysed.log.out 2>{prefix}.analysed.log.err && rm -rf "{tmp_dir}" && touch {output}'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output)
+#        run_stage(self.state, 'analyse_wgs', command)
+
+    def _analyse_wgs_with_command(self, input, output, subcommand, cpu=4):
+        '''
+          take mapped bams and generate variant calls by running the sanger pipeline cgpwgs
+        '''
+        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
+        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        if normal_id is None: # nothing to do
+            safe_make_dir(os.path.dirname(output))
+            with open(output, 'w') as output_fh:
+                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
+            return
+
+        tmp_id = 'wgs-{}'.format(tumour_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+
+        # make subcommand analysis script
+        with open('{tmp_dir}/analyse-{subcommand}.sh'.format(tmp_dir=tmp_dir, subcommand=subcommand), 'w') as analyse_fh:
+            for line in open('{root}/src/util/analyse.sh.template'.format(root=ROOT), 'r'):
+                new_line = re.sub('TMP_ID', tmp_id, line)
+                new_line = re.sub('TUMOUR', tumour_id, new_line)
+                new_line = re.sub('NORMAL', normal_id, new_line)
+                new_line = re.sub('COMMAND', subcommand, new_line)
+                new_line = re.sub('CPULIMIT', str(cpu), new_line)
+                analyse_fh.write(new_line)
+
+        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpwgs-1.0.8.img bash /mnt/tmp/{tmp_id}/analyse-{subcommand}.sh 1>{prefix}.wgs.{subcommand}.log.out 2>{prefix}.wgs.{subcommand}.log.err && touch {output}'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output, subcommand=subcommand)
+        run_stage(self.state, 'analyse_wgs_{}'.format(subcommand), command)
+
+    def analyse_wgs_prepare(self, input, output):
+        '''
+            creates working directory and scripts to run for wgs pipeline
+        '''
+        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
+        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        if normal_id is None: # nothing to do
+            safe_make_dir(os.path.dirname(output))
+            with open(output, 'w') as output_fh:
+                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
+            return
+
+        tmp_id = 'wgs-{}'.format(tumour_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        safe_make_dir(tmp_dir)
+        safe_make_dir(os.path.dirname(output))
+        command = 'cp {root}/src/util/analysisWGS.serial.sh {tmp_dir}/analysisWGS.sh && cp {root}/src/util/ds-wrapper-wgs-1.0.8.pl {tmp_dir}/ds-wrapper.pl && touch {output}'.format(root=ROOT, output=output, tmp_dir=tmp_dir)
+        run_stage(self.state, 'analyse_wgs_prepare', command)
+
+    def analyse_wgs_reference_files(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'reference_files')
+
+    def analyse_wgs_init(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'init')
+
+    # parallel block 1
+    def analyse_wgs_geno(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'geno')
+
+    def analyse_wgs_verify_WT(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'verify_WT')
+
+    def analyse_wgs_cgpPindel_input(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'cgpPindel_input')
+
+    def analyse_wgs_alleleCount(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'alleleCount')
+
+    # parallel block 2
+    def analyse_wgs_ascat(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'ascat')
+
+    def analyse_wgs_cgpPindel(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'cgpPindel')
+
+    def analyse_wgs_BRASS_input(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'BRASS_input')
+
+    def analyse_wgs_BRASS_cover(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'BRASS_cover')
+
+    def analyse_wgs_CaVEMan_split(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'CaVEMan_split')
+
+    # after block 2
+    def analyse_wgs_ascat_prep(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'ascat_prep')
+
+    def analyse_wgs_pindel_prep(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'pindel_prep')
+
+    # parallel block 3
+    def analyse_wgs_verify_MT(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'verify_MT')
+
+    def analyse_wgs_CaVEMan(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'CaVEMan', cpu=8)
+
+    def analyse_wgs_BRASS(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'BRASS')
+
+    def analyse_wgs_cgpPindel_annot(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'cgpPindel_annot')
+
+    # pre block 4
+    def analyse_wgs_caveman_prep(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'caveman_prep')
+
+    # block 4
+    def analyse_wgs_CaVEMan_annot(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'CaVEMan_annot')
+
+    # done
+    def analyse_wgs_finish(self, input, output):
+        self._analyse_wgs_with_command(input, output, 'finish')
+
+    # TODO remove tmp dir
+    # TODO potentially rm stage specific stuff

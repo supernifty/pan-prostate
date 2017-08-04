@@ -13,7 +13,7 @@ LINKS=./links-$(date +%Y%m%d).sh
 # generate a list of inputs
 # all fastq inputs
 echo "finding all fastq files"
-find $IN -name \*.fastq.gz > $SOURCES
+find -L $IN -name \*.fastq.gz > $SOURCES
 
 # priority samples
 #find /mnt/vicnode_nfs/original_data/1611KHX-0054_hdd1 -name \*.fastq.gz > sources-170321
