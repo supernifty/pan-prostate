@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# this runs inside the singularity container
+
+export OPT=/opt/wtsi-cgp
+export PATH=$OPT/bin:$PATH
+export PERL5LIB=$OPT/lib/perl5
+export LD_LIBRARY_PATH=$OPT/lib
+export TMPDIR=/mnt/tmp
+
+export CPU=8
+
+# HOME is where the tmp files end up
+export HOME=/mnt/tmp/TMP_ID
+mkdir -p $HOME
+
+cd /mnt/out/
+
+/usr/bin/perl /opt/wtsi-cgp/bin/ds-wrapper.pl \
+   -reference /mnt/reference/core_ref_GRCh37d5.tar.gz \
+   -annot /mnt/reference/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
+   -snv_indel /mnt/reference/SNV_INDEL_ref_GRCh37d5.tar.gz \
+   -cnv_sv /mnt/reference/CNV_SV_ref_GRCh37d5.tar.gz \
+   -subcl /mnt/reference/SUBCL_ref_GRCh37d5.tar.gz \
+   -exclude "NC_007605,hs37d5,GL%" \
+   -species human \
+   -assembly GRCh37d5 \
+   -tumour /mnt/out/TUMOUR.mapped.bam \
+   -normal /mnt/out/NORMAL.mapped.bam
+
+# mv required files to destination
+# TODO
+#for suffix in bam bam.bai bam.bas bam.maptime bam.md5 bam.met; do
+#  mv /mnt/tmp/TMP_ID/CMHS51.$suffix /mnt/out/CMHS51.mapped.$suffix
+#done
