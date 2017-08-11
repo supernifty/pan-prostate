@@ -21,6 +21,7 @@ ROOT='/data/projects/punim0095/pan-prostate'
 OUT='/data/punim0261/data01/out'
 IN='/data/punim0261/data02/original_data'
 REFERENCE='/data/projects/punim0095/pan-prostate/reference'
+REFERENCE_DELLY='/data/projects/punim0095/pan-prostate/reference-dkfz'
 TMP='/data/punim0261/data01/tmp'
 #TMP='/data/projects/punim0095/pan-prostate/tmp'
 
@@ -187,33 +188,6 @@ class Stages(object):
         '''
         pass
 
-#    def analyse_wgs(self, input, output):
-#        '''
-#          take mapped bams and generate variant calls by running the sanger pipeline cgpwgs
-#        '''
-#        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
-#        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
-#        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
-#        if normal_id is None: # nothing to do
-#            safe_make_dir(os.path.dirname(output))
-#            with open(output, 'w') as output_fh:
-#                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
-#            return
-#
-#        tmp_id = '{}-{}'.format(tumour_id, str(uuid.uuid4()))
-#        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
-#        safe_make_dir(tmp_dir)
-#        with open('{tmp_dir}/analyse.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
-#            for line in open('{root}/src/util/analyse.sh.template'.format(root=ROOT), 'r'):
-#                new_line = re.sub('TMP_ID', tmp_id, line)
-#                new_line = re.sub('TUMOUR', tumour_id, new_line)
-#                new_line = re.sub('NORMAL', normal_id, new_line)
-#                analyse_fh.write(new_line)
-#
-#        safe_make_dir(os.path.dirname(output))
-#        command = 'cp {root}/src/util/analysisWGS.serial.sh {tmp_dir}/analysisWGS.sh && cp {root}/src/util/ds-wrapper-wgs-1.0.7.serial.pl {tmp_dir}/ds-wrapper.pl && singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpwgs-1.0.7.img bash /mnt/tmp/{tmp_id}/analyse.sh 1>{prefix}.analysed.log.out 2>{prefix}.analysed.log.err && rm -rf "{tmp_dir}" && touch {output}'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output)
-#        run_stage(self.state, 'analyse_wgs', command)
-
     def _analyse_wgs_with_command(self, input, output, subcommand, cpu=4):
         '''
           take mapped bams and generate variant calls by running the sanger pipeline cgpwgs
@@ -332,3 +306,34 @@ class Stages(object):
 
     # TODO remove tmp dir
     # TODO potentially rm stage specific stuff
+
+    def delly(self, input, output, cpu=8):
+        '''
+          run the delly singularity container
+        '''
+        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
+        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+
+        # nothing to do for normal sample
+        if normal_id is None: 
+            safe_make_dir(os.path.dirname(output))
+            with open(output, 'w') as output_fh:
+                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
+            return
+
+        # it's a tumour
+        tmp_id = 'delly-{}-{}'.format(tumour_id, str(uuid.uuid4()))
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        safe_make_dir(tmp_dir)
+        with open('{tmp_dir}/delly.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
+            for line in open('{root}/src/util/delly.sh.template'.format(root=ROOT), 'r'):
+                new_line = re.sub('TUMOUR', tumour_id, line)
+                new_line = re.sub('NORMAL', normal_id, new_line)
+                new_line = re.sub('CORES', str(cpu), new_line)
+                analyse_fh.write(new_line)
+
+        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp_dir}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/delly-2.0.0.img bash /mnt/tmp/delly.sh 1>{prefix}.delly.log.out 2>{prefix}.delly.log.err && mv {tmp_dir}/workdir {prefix}.delly.results && touch "{output}" && rm -r "{tmp_dir}"'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE_DELLY, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output)
+
+        run_stage(self.state, 'delly', command)
+

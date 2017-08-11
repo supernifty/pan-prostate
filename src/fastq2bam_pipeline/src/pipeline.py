@@ -237,4 +237,16 @@ def make_pipeline(state):
         filter=formatter('(?P<path>.+)/(?P<sample>[a-zA-Z0-9]+).mapped.bam'),
         output='{path[0]}/{sample[0]}.wgs/completed.finish')
 
+
+    #
+    # runs the delly singularity container
+    #
+
+    pipeline.transform(
+        task_func=stages.delly,
+        name='delly',
+        input=output_from('align'),
+        filter=formatter('(?P<path>.+)/(?P<sample>[a-zA-Z0-9]+).mapped.bam'),
+        output='{path[0]}/{sample[0]}.delly.completed')
+
     return pipeline

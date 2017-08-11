@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# runs inside the container
+
+# set this to the number of cores
+export CPU=CORES
+
+# - prepend the correct path to sequenza-utils because the file (/services/weischenfeldt_lab/modulefiles/sequenza-utils/2.2.0) incorrectly sets the path for any non-docker user
+export PATH=$PATH:/services/weischenfeldt_lab/software/sequenza-utils/2.2.0/bin/:/services/weischenfeldt_lab/software/delly/0.7.7/bin:/services/weischenfeldt_lab/seqstats/0.5.6/bin:/services/weischenfeldt_lab/software/delly-filter/0.0.1/bin:/services/weischenfeldt_lab/software/cov_tool/0.5.6/bin:/services/weischenfeldt_lab/software/Delly_sv_PoN_filter/1.0.0/bin:/services/weischenfeldt_lab/software/cov_plot/0.0.1/bin
+
+# changes to get this working
+# - manually load the required modules. this seems to have been specifically configured for the docker user and doesn't run in singularity
+
+bash -c -x -v '. /etc/profile.d/modules.sh && module use /usr/share/Modules/modulefiles && module use /services/weischenfeldt_lab/modulefiles && module avail && /usr/bin/launch_env.sh --run-id run_id --normal-bam /mnt/out/NORMAL.mapped.bam --tumor-bam /mnt/out/TUMOUR.mapped.bam --reference-gz /mnt/reference/genome.fa.gz --reference-gc /mnt/reference/hs37d5_1000GP.gc --exclude-reg /mnt/reference/human.hg19.excl.tsv --sv-collection /mnt/reference/svCallCollectionsPCAWG.tar.gz --bin 200 --ncpu $CPU --tmp /mnt/tmp'

@@ -43,7 +43,7 @@ for f in glob.glob('CMHS[0-9]*.bam.log.err'):
       if started is not None and finished is not None:
         sys.stdout.write('{},{},{},{},{}\n'.format(sample, job, started.strftime('%Y-%m-%d %H:%M:%S'), finished.strftime('%Y-%m-%d %H:%M:%S'), (finished - started).total_seconds()))
     except ValueError:
-      sys.stderr.write('skipped {}'.format(f))
+      sys.stderr.write('skipped {}\n'.format(f))
 
 # wgs
 for f in glob.glob('CMHS[0-9]*.wgs.*.log.out'):
