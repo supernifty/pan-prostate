@@ -62,3 +62,22 @@ for f in glob.glob('CMHS[0-9]*.wgs.*.log.out'):
       finished = dateutil.parser.parse(date)
   if started is not None and finished is not None:
     sys.stdout.write('{},{},{},{},{}\n'.format(sample, job, started.strftime('%Y-%m-%d %H:%M:%S'), finished.strftime('%Y-%m-%d %H:%M:%S'), (finished - started).total_seconds()))
+
+# delly
+for f in glob.glob('CMHS[0-9]*.delly.log.err'):
+  fields = f.split('.')
+  sample = fields[0]
+  job = 'delly'
+  started = None
+  finished = None
+  for line in open(f, 'r'):
+    # look for dates of the form INFO : 2017-08-10 22:06:55,910 : Poll job KBPKQ941GT
+    if started is None and line.startswith('INFO'):
+      date = line.split('INFO : '.format(job))[1].split(',')[0]
+      started = dateutil.parser.parse(date)
+    # last line is INFO : 2017-08-10 22:24:38,072 : Archive bam_qc directory /tmp/workdir/bam_qc
+    if finished is None and 'Archive bam_qc directory' in line:
+      date = line.split('INFO : '.format(job))[1].split(',')[0]
+      finished = dateutil.parser.parse(date)
+  if started is not None and finished is not None:
+    sys.stdout.write('{},{},{},{},{}\n'.format(sample, job, started.strftime('%Y-%m-%d %H:%M:%S'), finished.strftime('%Y-%m-%d %H:%M:%S'), (finished - started).total_seconds()))

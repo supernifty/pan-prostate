@@ -32,4 +32,8 @@ for f in glob.glob('CMHS[0-9]*.wgs/completed.finish'): # pre-aligned bam is at l
   modified = os.stat(f).st_mtime
   sys.stdout.write('{},variants,{}\n'.format(sample, modified))
 
-
+# delly
+for f in glob.glob('CMHS[0-9]*.delly.completed'): # pre-aligned bam is at least in progress
+  sample = f.split('.')[0]
+  modified = os.stat(f).st_mtime
+  sys.stdout.write('{},delly,{}\n'.format(sample, modified))
