@@ -16,15 +16,8 @@ import subprocess
 import sys
 import uuid
 
+import config
 import util
-
-ROOT='/data/projects/punim0095/pan-prostate'
-OUT='/data/punim0261/data01/out'
-IN='/data/punim0261/data02/original_data'
-REFERENCE='/data/projects/punim0095/pan-prostate/reference'
-REFERENCE_DELLY='/data/projects/punim0095/pan-prostate/reference-dkfz'
-TMP='/data/punim0261/data01/tmp'
-#TMP='/data/projects/punim0095/pan-prostate/tmp'
 
 class Stages(object):
     def __init__(self, state):
@@ -66,7 +59,7 @@ class Stages(object):
         log_out = os.path.join(output_dir, '{}.log.out'.format(bam_out))
         log_err = os.path.join(output_dir, '{}.log.err'.format(bam_out))
 
-        command = "python {}/src/util/fastq2bam.py --r1 {} --r2 {} --output_dir {} --bam {} 1>{} 2>{}".format(ROOT, fastq_read1_in, fastq_read2_in, output_dir, bam_out, log_out, log_err)
+        command = "python {}/src/util/fastq2bam.py --r1 {} --r2 {} --output_dir {} --bam {} 1>{} 2>{}".format(config.ROOT, fastq_read1_in, fastq_read2_in, output_dir, bam_out, log_out, log_err)
         run_stage(self.state, 'fastq2bam', command)
 
     def validate_prealigned_bam(self, input, validation_out):
@@ -81,7 +74,7 @@ class Stages(object):
         validation_in = '{}.validation_src'.format(prefix)
         # read in additional metadata
         found = False
-        for line in open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'):
+        for line in open("{}/cfg/sample-metadata.csv".format(config.ROOT), 'r'):
             # Sample UUID,Patient UUID,Lab ID,tissue_id,is_normal
             fields = line.strip('\n').split(',')
             if fields[0] == sample:
@@ -106,17 +99,17 @@ class Stages(object):
 
         # make our own align script
         tmp_id = '{}-{}'.format(sample, str(uuid.uuid4()))
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
         with open('{tmp_dir}/validate.sh'.format(tmp_dir=tmp_dir), 'w') as align_fh:
-            for line in open('{root}/src/util/validate.sh.template'.format(root=ROOT), 'r'):
+            for line in open('{root}/src/util/validate.sh.template'.format(root=config.ROOT), 'r'):
                 new_line = re.sub('TMP_ID', tmp_id, line)
                 new_line = re.sub('SAMPLE', sample, new_line)
                 align_fh.write(new_line)
 
         # run the validation script and generate output
-        #command = ". {root}/src/util/profile; validate_sample_meta.pl -in {validation_in} -out {validation_out} -f tsv 1>{prefix}.validation.out 2>{prefix}.validation.err".format(root=ROOT, validation_in=validation_in, validation_out=validation_out, prefix=prefix)
-        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpqc.img bash /mnt/tmp/{tmp_id}/validate.sh'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id)
+        #command = ". {root}/src/util/profile; validate_sample_meta.pl -in {validation_in} -out {validation_out} -f tsv 1>{prefix}.validation.out 2>{prefix}.validation.err".format(root=config.ROOT, validation_in=validation_in, validation_out=validation_out, prefix=prefix)
+        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpqc.img bash /mnt/tmp/{tmp_id}/validate.sh'.format(root=config.ROOT, in_dir=config.IN, out=config.OUT, reference=config.REFERENCE, tmp=config.TMP, tmp_dir=tmp_dir, tmp_id=tmp_id)
         run_stage(self.state, 'validate_prealigned_bam', command)
 
         # check that it worked - but run_stage doesn't block
@@ -154,16 +147,16 @@ class Stages(object):
 
         # make our own align script
         tmp_id = 'align-{}-{}'.format(sample, str(uuid.uuid4()))
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
         with open('{tmp_dir}/align.sh'.format(tmp_dir=tmp_dir), 'w') as align_fh:
-            for line in open('{root}/src/util/align.sh.template'.format(root=ROOT), 'r'):
+            for line in open('{root}/src/util/align.sh.template'.format(root=config.ROOT), 'r'):
                 new_line = re.sub('TMP_ID', tmp_id, line)
                 new_line = re.sub('SAMPLE_FILENAME', sample_filename, new_line)
                 new_line = re.sub('SAMPLE_ID', sample, new_line)
                 align_fh.write(new_line)
 
-        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpmap.img bash /mnt/tmp/{tmp_id}/align.sh 1>{prefix}.mapped.log.out 2>{prefix}.mapped.log.err && rm -rf "{tmp_dir}"'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix)
+        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpmap.img bash /mnt/tmp/{tmp_id}/align.sh 1>{prefix}.mapped.log.out 2>{prefix}.mapped.log.err && rm -rf "{tmp_dir}"'.format(root=config.ROOT, in_dir=config.IN, out=config.OUT, reference=config.REFERENCE, tmp=config.TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix)
         run_stage(self.state, 'align', command)
 
     def align_stats_bedtools(self, inputs, stats_out):
@@ -171,7 +164,7 @@ class Stages(object):
           generate coverage stats from bam
         '''
         mapped_bam = inputs
-        command = 'bedtools genomecov -ibam {mapped_bam} | python {root}/src/util/coverage_histogram.py {stats_out}.histogram.html 1>{stats_out} 2>{stats_out}.err'.format(root=ROOT, mapped_bam=mapped_bam, stats_out=stats_out)
+        command = 'bedtools genomecov -ibam {mapped_bam} | python {root}/src/util/coverage_histogram.py {stats_out}.histogram.html 1>{stats_out} 2>{stats_out}.err'.format(root=config.ROOT, mapped_bam=mapped_bam, stats_out=stats_out)
         run_stage(self.state, 'align_stats_bedtools', command)
 
     def align_stats_picard(self, inputs, stats_out):
@@ -179,7 +172,7 @@ class Stages(object):
           generate coverage stats from bam
         '''
         mapped_bam = inputs
-        command = 'java -jar {root}/tools/picard-2.8.2.jar CollectRawWgsMetrics INPUT={input} OUTPUT={output} REFERENCE_SEQUENCE={root}/reference/core_ref_GRCh37d5/genome.fa INCLUDE_BQ_HISTOGRAM=true 1>{output}.log.out 2>{output}.log.err'.format(root=ROOT, input=mapped_bam, output=stats_out)
+        command = 'java -jar {root}/tools/picard-2.8.2.jar CollectRawWgsMetrics INPUT={input} OUTPUT={output} REFERENCE_SEQUENCE={root}/reference/core_ref_GRCh37d5/genome.fa INCLUDE_BQ_HISTOGRAM=true 1>{output}.log.out 2>{output}.log.err'.format(root=config.ROOT, input=mapped_bam, output=stats_out)
         run_stage(self.state, 'align_stats_picard', command)
 
     def validate_aligned_bam(self, inputs):
@@ -195,7 +188,7 @@ class Stages(object):
         '''
         prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
         tumour_id = prefix.split('/')[-1] # e.g. CMHS1
-        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(config.ROOT), 'r'))
         if normal_id is None: # nothing to do
             safe_make_dir(os.path.dirname(output))
             with open(output, 'w') as output_fh:
@@ -203,11 +196,11 @@ class Stages(object):
             return
 
         tmp_id = 'wgs-{}'.format(tumour_id)
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
 
         # make subcommand analysis script
         with open('{tmp_dir}/analyse-{subcommand}.sh'.format(tmp_dir=tmp_dir, subcommand=subcommand), 'w') as analyse_fh:
-            for line in open('{root}/src/util/analyse.sh.template'.format(root=ROOT), 'r'):
+            for line in open('{root}/src/util/analyse.sh.template'.format(root=config.ROOT), 'r'):
                 new_line = re.sub('TMP_ID', tmp_id, line)
                 new_line = re.sub('TUMOUR', tumour_id, new_line)
                 new_line = re.sub('NORMAL', normal_id, new_line)
@@ -215,7 +208,7 @@ class Stages(object):
                 new_line = re.sub('CPULIMIT', str(cpu), new_line)
                 analyse_fh.write(new_line)
 
-        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpwgs-1.0.8.img bash /mnt/tmp/{tmp_id}/analyse-{subcommand}.sh 1>{prefix}.wgs.{subcommand}.log.out 2>{prefix}.wgs.{subcommand}.log.err && touch {output}'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output, subcommand=subcommand)
+        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/cgpwgs-1.0.8.img bash /mnt/tmp/{tmp_id}/analyse-{subcommand}.sh 1>{prefix}.wgs.{subcommand}.log.out 2>{prefix}.wgs.{subcommand}.log.err && touch {output}'.format(root=config.ROOT, in_dir=config.IN, out=config.OUT, reference=config.REFERENCE, tmp=config.TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output, subcommand=subcommand)
         run_stage(self.state, 'analyse_wgs_{}'.format(subcommand), command)
 
     def analyse_wgs_prepare(self, input, output):
@@ -224,7 +217,7 @@ class Stages(object):
         '''
         prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
         tumour_id = prefix.split('/')[-1] # e.g. CMHS1
-        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(config.ROOT), 'r'))
         if normal_id is None: # nothing to do
             safe_make_dir(os.path.dirname(output))
             with open(output, 'w') as output_fh:
@@ -232,10 +225,10 @@ class Stages(object):
             return
 
         tmp_id = 'wgs-{}'.format(tumour_id)
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
         safe_make_dir(os.path.dirname(output))
-        command = 'cp {root}/src/util/analysisWGS.serial.sh {tmp_dir}/analysisWGS.sh && cp {root}/src/util/ds-wrapper-wgs-1.0.8.pl {tmp_dir}/ds-wrapper.pl && touch {output}'.format(root=ROOT, output=output, tmp_dir=tmp_dir)
+        command = 'cp {root}/src/util/analysisWGS.serial.sh {tmp_dir}/analysisWGS.sh && cp {root}/src/util/ds-wrapper-wgs-1.0.8.pl {tmp_dir}/ds-wrapper.pl && touch {output}'.format(root=config.ROOT, output=output, tmp_dir=tmp_dir)
         run_stage(self.state, 'analyse_wgs_prepare', command)
 
     def analyse_wgs_reference_files(self, input, output):
@@ -314,7 +307,7 @@ class Stages(object):
         '''
         prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
         tumour_id = prefix.split('/')[-1] # e.g. CMHS1
-        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(config.ROOT), 'r'))
 
         # nothing to do for normal sample
         if normal_id is None: 
@@ -325,16 +318,16 @@ class Stages(object):
 
         # it's a tumour
         tmp_id = 'delly-{}-{}'.format(tumour_id, str(uuid.uuid4()))
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
         with open('{tmp_dir}/delly.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
-            for line in open('{root}/src/util/delly.sh.template'.format(root=ROOT), 'r'):
+            for line in open('{root}/src/util/delly.sh.template'.format(root=config.ROOT), 'r'):
                 new_line = re.sub('TUMOUR', tumour_id, line)
                 new_line = re.sub('NORMAL', normal_id, new_line)
                 new_line = re.sub('CORES', str(cpu), new_line)
                 analyse_fh.write(new_line)
 
-        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp_dir}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/delly-2.0.0.img bash /mnt/tmp/delly.sh 1>{prefix}.delly.log.out 2>{prefix}.delly.log.err && mv {tmp_dir}/workdir {prefix}.delly.results && touch "{output}" && rm -r "{tmp_dir}"'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE_DELLY, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output)
+        command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp_dir}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/delly-2.0.0.img bash /mnt/tmp/delly.sh 1>{prefix}.delly.log.out 2>{prefix}.delly.log.err && mv {tmp_dir}/workdir {prefix}.delly.results && touch "{output}" && rm -r "{tmp_dir}"'.format(root=config.ROOT, in_dir=config.IN, out=config.OUT, reference=config.REFERENCE_DELLY, tmp=config.TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output)
 
         run_stage(self.state, 'delly', command)
 
@@ -346,7 +339,7 @@ class Stages(object):
 
         prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
         tumour_id = prefix.split('/')[-1] # e.g. CMHS1
-        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(config.ROOT), 'r'))
 
         # nothing to do for normal sample
         if normal_id is None: 
@@ -357,7 +350,7 @@ class Stages(object):
 
         # it's a tumour
         tmp_id = 'muse-{}-{}'.format(tumour_id, str(uuid.uuid4()))
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
 
         # build combine variants commands
@@ -377,10 +370,11 @@ class Stages(object):
               current = final
 
         with open('{tmp_dir}/muse.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
-            for line in open('{root}/src/util/muse.sh.template'.format(root=ROOT), 'r'):
+            for line in open('{root}/src/util/muse.sh.template'.format(root=config.ROOT), 'r'):
                 new_line = re.sub('TUMOUR', tumour_id, line)
                 new_line = re.sub('NORMAL', normal_id, new_line)
                 new_line = re.sub('TMP_DIR', tmp_dir, new_line)
+                new_line = re.sub('ROOT', config.ROOT, new_line)
                 new_line = re.sub('CALL_VARIANTS', '\n'.join(muse_commands), new_line)
 
                 analyse_fh.write(new_line)
@@ -396,7 +390,7 @@ class Stages(object):
         '''
         prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
         tumour_id = prefix.split('/')[-1] # e.g. CMHS1
-        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(config.ROOT), 'r'))
 
         # nothing to do for normal sample
         if normal_id is None: 
@@ -407,13 +401,14 @@ class Stages(object):
 
         # it's a tumour
         tmp_id = 'mutect2-{}-{}'.format(tumour_id, str(uuid.uuid4()))
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
 
         with open('{tmp_dir}/mutect2.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
-            for line in open('{root}/src/util/mutect2.sh.template'.format(root=ROOT), 'r'):
+            for line in open('{root}/src/util/mutect2.sh.template'.format(root=config.ROOT), 'r'):
                 new_line = re.sub('TUMOUR', tumour_id, line)
                 new_line = re.sub('NORMAL', normal_id, new_line)
+                new_line = re.sub('ROOT', config.ROOT, new_line)
                 analyse_fh.write(new_line)
 
         #command = 'bash {tmp_dir}/muse.sh && touch "{output}" && rm -r "{tmp_dir}"'.format(tmp_dir=tmp_dir, output=output)
@@ -427,7 +422,7 @@ class Stages(object):
         '''
         prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
         tumour_id = prefix.split('/')[-1] # e.g. CMHS1
-        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(config.ROOT), 'r'))
 
         # nothing to do for normal sample
         if normal_id is None: 
@@ -438,13 +433,15 @@ class Stages(object):
 
         # it's a tumour
         tmp_id = 'gridss-{}-{}'.format(tumour_id, str(uuid.uuid4()))
-        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=config.TMP, tmp_id=tmp_id)
         safe_make_dir(tmp_dir)
 
         with open('{tmp_dir}/gridss.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
-            for line in open('{root}/src/util/gridss.sh.template'.format(root=ROOT), 'r'):
+            for line in open('{root}/src/util/gridss.sh.template'.format(root=config.ROOT), 'r'):
                 new_line = re.sub('TUMOUR', tumour_id, line)
                 new_line = re.sub('NORMAL', normal_id, new_line)
+                new_line = re.sub('ROOT', config.ROOT, new_line)
+                new_line = re.sub('ACCOUNT', config.ACCOUNT, new_line)
                 analyse_fh.write(new_line)
 
         #command = 'bash {tmp_dir}/muse.sh && touch "{output}" && rm -r "{tmp_dir}"'.format(tmp_dir=tmp_dir, output=output)

@@ -3,11 +3,11 @@ set -e
 
 echo "starting muse at $(date)"
 
-REFERENCE=/data/projects/punim0095/pan-prostate/reference/core_ref_GRCh37d5/genome.fa
-NRML_ABS=/data/projects/punim0095/pan-prostate/out/NORMAL.mapped.bam
-TMR_ABS=/data/projects/punim0095/pan-prostate/out/TUMOUR.mapped.bam
-OUTPUT=/data/projects/punim0095/pan-prostate/out/TUMOUR.muse.vcf
-MUSE=/data/projects/punim0095/pan-prostate/tools/MuSEv1.0rc_submission_c039ffa
+REFERENCE=ROOT/reference/core_ref_GRCh37d5/genome.fa
+NRML_ABS=ROOT/out/NORMAL.mapped.bam
+TMR_ABS=ROOT/out/TUMOUR.mapped.bam
+OUTPUT=ROOT/out/TUMOUR.muse.vcf
+MUSE=ROOT/tools/MuSEv1.0rc_submission_c039ffa
 
 CALL_VARIANTS
 
