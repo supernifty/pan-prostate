@@ -30,10 +30,34 @@ The account with access is:
 * biobambam2: wget https://github.com/gt1/biobambam2/releases/download/2.0.65-release-20161130121735/biobambam2-2.0.65-release-20161130121735-x86_64-etch-linux-gnu.tar.gz in tools
 * fastqc must be on the path
 * picard: wget https://github.com/broadinstitute/picard/releases/download/2.8.2/picard-2.8.2.jar in tools
+* gatk 3.8: wget https://software.broadinstitute.org/gatk/download/auth?package=GATK
+* muse: wget http://bioinformatics.mdanderson.org/Software/MuSE/MuSEv1.0rc_submission_c039ffa
+* gridss: wget https://github.com/PapenfussLab/gridss/releases/download/v1.4.1/gridss-1.4.1-jar-with-dependencies.jar
+
+Gridss requires bwa index to be run:
+```
+bwa index /data/projects/punim0095/pan-prostate/reference/core_ref_GRCh37d5/genome.fa
+```
+
+* varscan: wget https://github.com/dkoboldt/varscan/blob/master/VarScan.v2.4.0.jar?raw=true
 
 * References:
   TODO other references
   wget ftp://ftp.sanger.ac.uk/pub/cancer/dockstore/human/cytoband_GRCh37d5.txt
+
+* mutect2 requires genome.dict:
+```
+java -jar picard-2.8.2.jar CreateSequenceDictionary R=/data/projects/punim0095/pan-prostate/reference/core_ref_GRCh37d5/genome.fa O=/data/projects/punim0095/pan-prostate/reference/core_ref_GRCh37d5/genome.dict
+```
+
+* mutect2 requires dbsnp and cosmic
+  - dbsnp comes from the gatk bundle.
+  - cosmic comes from sftp-cancer.sanger.ac.uk/cosmic/grch37/cosmic/v82/VCF/CosmicCodingMuts.vcf.gz, /cosmic/grch37/cosmic/v82/VCF/CosmicNonCodingVariants.vcf.gz
+```
+  gunzip < CosmicCodingMuts.vcf.gz > combined_cosmic.vcf
+  gunzip < CosmicNonCodingVariants.vcf.gz | grep "^[^#]" >> combined_cosmic.vcf
+  java -jar /data/projects/punim0095/pan-prostate/tools/picard-2.8.2.jar SortVcf I=combined_cosmic.vcf O=combined_cosmic.sorted.vcf SEQUENCE_DICTIONARY=/data/projects/punim0095/pan-prostate/reference/core_ref_GRCh37d5/genome.dict
+```
 
 ## Installing the pipeline
 
@@ -88,6 +112,9 @@ A *links* file is created, which can be executed in the out directory to generat
 cd out
 bash ROOT/links-YYYYMMDD.sh
 ```
+
+## Adding files to htsdb.org
+
 
 # Running the pipeline
 

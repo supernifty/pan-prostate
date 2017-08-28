@@ -249,4 +249,25 @@ def make_pipeline(state):
         filter=formatter('(?P<path>.+)/(?P<sample>[a-zA-Z0-9]+).mapped.bam'),
         output='{path[0]}/{sample[0]}.delly.completed')
 
+    pipeline.transform(
+        task_func=stages.gridss,
+        name='gridss',
+        input=output_from('align'),
+        filter=formatter('(?P<path>.+)/(?P<sample>[a-zA-Z0-9]+).mapped.bam'),
+        output='{path[0]}/{sample[0]}.gridss.completed')
+
+    pipeline.transform(
+        task_func=stages.muse,
+        name='muse',
+        input=output_from('align'),
+        filter=formatter('(?P<path>.+)/(?P<sample>[a-zA-Z0-9]+).mapped.bam'),
+        output='{path[0]}/{sample[0]}.muse.completed')
+
+    pipeline.transform(
+        task_func=stages.mutect2,
+        name='mutect2',
+        input=output_from('align'),
+        filter=formatter('(?P<path>.+)/(?P<sample>[a-zA-Z0-9]+).mapped.bam'),
+        output='{path[0]}/{sample[0]}.mutect2.completed')
+
     return pipeline

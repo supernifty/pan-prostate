@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -e
+
+echo "starting muse at $(date)"
+
+REFERENCE=/data/projects/punim0095/pan-prostate/reference/core_ref_GRCh37d5/genome.fa
+NRML_ABS=/data/projects/punim0095/pan-prostate/out/NORMAL.mapped.bam
+TMR_ABS=/data/projects/punim0095/pan-prostate/out/TUMOUR.mapped.bam
+OUTPUT=/data/projects/punim0095/pan-prostate/out/TUMOUR.muse.vcf
+MUSE=/data/projects/punim0095/pan-prostate/tools/MuSEv1.0rc_submission_c039ffa
+
+CALL_VARIANTS
+
+echo "finished calls at $(date)..."
+
+# combine variants
+cat TMP_DIR/tmp*.MuSE.txt > TMP_DIR/combined
+
+# make vcf
+$MUSE sump -I TMP_DIR/combined -G -O $OUTPUT
+
+echo "finishing muse at $(date)"

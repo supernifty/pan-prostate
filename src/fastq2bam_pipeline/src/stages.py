@@ -12,6 +12,7 @@ from pipeline_base.runner import run_stage
 
 import os
 import re
+import subprocess
 import sys
 import uuid
 
@@ -250,10 +251,10 @@ class Stages(object):
     def analyse_wgs_verify_WT(self, input, output):
         self._analyse_wgs_with_command(input, output, 'verify_WT')
 
-    def analyse_wgs_cgpPindel_input(self, input, output):
+    def analyse_wgs_cgpPindel_input(self, input, output, cpu=3):
         self._analyse_wgs_with_command(input, output, 'cgpPindel_input')
 
-    def analyse_wgs_alleleCount(self, input, output):
+    def analyse_wgs_alleleCount(self, input, output, cpu=3):
         self._analyse_wgs_with_command(input, output, 'alleleCount')
 
     # parallel block 2
@@ -307,7 +308,7 @@ class Stages(object):
     # TODO remove tmp dir
     # TODO potentially rm stage specific stuff
 
-    def delly(self, input, output, cpu=8):
+    def delly(self, input, output, cpu=6):
         '''
           run the delly singularity container
         '''
@@ -336,4 +337,118 @@ class Stages(object):
         command = 'singularity exec -i --bind {in_dir}:/mnt/in,{out}:/mnt/out,{reference}:/mnt/reference,{tmp_dir}:/mnt/tmp --workdir {tmp_dir} --contain {root}/img/delly-2.0.0.img bash /mnt/tmp/delly.sh 1>{prefix}.delly.log.out 2>{prefix}.delly.log.err && mv {tmp_dir}/workdir {prefix}.delly.results && touch "{output}" && rm -r "{tmp_dir}"'.format(root=ROOT, in_dir=IN, out=OUT, reference=REFERENCE_DELLY, tmp=TMP, tmp_dir=tmp_dir, tmp_id=tmp_id, prefix=prefix, output=output)
 
         run_stage(self.state, 'delly', command)
+
+    def muse(self, input, output):
+        '''
+          run muse
+        '''
+        interval = 50000000 # chunk size to break chromosomes into for muse
+
+        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
+        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+
+        # nothing to do for normal sample
+        if normal_id is None: 
+            safe_make_dir(os.path.dirname(output))
+            with open(output, 'w') as output_fh:
+                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
+            return
+
+        # it's a tumour
+        tmp_id = 'muse-{}-{}'.format(tumour_id, str(uuid.uuid4()))
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        safe_make_dir(tmp_dir)
+
+        # build combine variants commands
+        muse_commands = []
+        cmd = ['samtools', 'view', '-H', input]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        for line in proc.stdout.readlines():
+          if line.startswith('@SQ\t'):
+            fields = line.strip().split('\t')
+            chromosome = fields[1].split(':')[1] # SN
+            size = int(fields[2].split(':')[1]) # LN
+            # now write regions as zero based
+            current = 0
+            while current < size:
+              final = min(size, current + interval)
+              muse_commands.append('$MUSE call -O {tmp_dir}/tmp{chromosome}_{current}_{final} -f $REFERENCE -r "{chromosome}:{current}-{final}" $TMR_ABS $NRML_ABS'.format(tmp_dir=tmp_dir, chromosome=chromosome, current=current, final=final, prefix=prefix))
+              current = final
+
+        with open('{tmp_dir}/muse.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
+            for line in open('{root}/src/util/muse.sh.template'.format(root=ROOT), 'r'):
+                new_line = re.sub('TUMOUR', tumour_id, line)
+                new_line = re.sub('NORMAL', normal_id, new_line)
+                new_line = re.sub('TMP_DIR', tmp_dir, new_line)
+                new_line = re.sub('CALL_VARIANTS', '\n'.join(muse_commands), new_line)
+
+                analyse_fh.write(new_line)
+
+        #command = 'bash {tmp_dir}/muse.sh && touch "{output}" && rm -r "{tmp_dir}"'.format(tmp_dir=tmp_dir, output=output)
+        command = 'bash {tmp_dir}/muse.sh 2>{prefix}.muse.log.err 1>{prefix}.muse.log.out && touch "{output}" && rm -r {tmp_dir}'.format(tmp_dir=tmp_dir, output=output, prefix=prefix)
+
+        run_stage(self.state, 'muse', command)
+
+    def mutect2(self, input, output):
+        '''
+            run mutect2
+        '''
+        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
+        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+
+        # nothing to do for normal sample
+        if normal_id is None: 
+            safe_make_dir(os.path.dirname(output))
+            with open(output, 'w') as output_fh:
+                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
+            return
+
+        # it's a tumour
+        tmp_id = 'mutect2-{}-{}'.format(tumour_id, str(uuid.uuid4()))
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        safe_make_dir(tmp_dir)
+
+        with open('{tmp_dir}/mutect2.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
+            for line in open('{root}/src/util/mutect2.sh.template'.format(root=ROOT), 'r'):
+                new_line = re.sub('TUMOUR', tumour_id, line)
+                new_line = re.sub('NORMAL', normal_id, new_line)
+                analyse_fh.write(new_line)
+
+        #command = 'bash {tmp_dir}/muse.sh && touch "{output}" && rm -r "{tmp_dir}"'.format(tmp_dir=tmp_dir, output=output)
+        command = 'bash {tmp_dir}/mutect2.sh 2>{prefix}.mutect2.log.err 1>{prefix}.mutect2.log.out && touch "{output}" && rm -r {tmp_dir}'.format(tmp_dir=tmp_dir, output=output, prefix=prefix)
+
+        run_stage(self.state, 'mutect2', command)
+
+    def gridss(self, input, output):
+        '''
+            run gridss
+        '''
+        prefix = re.sub('.mapped.bam$', '', input) # full path without mapped.bam
+        tumour_id = prefix.split('/')[-1] # e.g. CMHS1
+        normal_id = util.find_normal(tumour_id, open("{}/cfg/sample-metadata.csv".format(ROOT), 'r'))
+
+        # nothing to do for normal sample
+        if normal_id is None: 
+            safe_make_dir(os.path.dirname(output))
+            with open(output, 'w') as output_fh:
+                output_fh.write('Normal sample does not require analysis. See the relevant tumour file.\n')
+            return
+
+        # it's a tumour
+        tmp_id = 'gridss-{}-{}'.format(tumour_id, str(uuid.uuid4()))
+        tmp_dir = '{tmp}/{tmp_id}'.format(tmp=TMP, tmp_id=tmp_id)
+        safe_make_dir(tmp_dir)
+
+        with open('{tmp_dir}/gridss.sh'.format(tmp_dir=tmp_dir), 'w') as analyse_fh:
+            for line in open('{root}/src/util/gridss.sh.template'.format(root=ROOT), 'r'):
+                new_line = re.sub('TUMOUR', tumour_id, line)
+                new_line = re.sub('NORMAL', normal_id, new_line)
+                analyse_fh.write(new_line)
+
+        #command = 'bash {tmp_dir}/muse.sh && touch "{output}" && rm -r "{tmp_dir}"'.format(tmp_dir=tmp_dir, output=output)
+        command = 'bash {tmp_dir}/gridss.sh 2>{prefix}.gridss.log.err 1>{prefix}.gridss.log.out && touch "{output}" && rm -r {tmp_dir}'.format(tmp_dir=tmp_dir, output=output, prefix=prefix)
+
+        run_stage(self.state, 'gridss', command)
 
